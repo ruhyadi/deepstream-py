@@ -1,0 +1,25 @@
+# usage: pip install -r requirements.txt
+
+# base
+hydra-core==1.3.2 # hydra configuration
+rootutils==1.0.7 # path management
+colorlog==6.7.0 # logging with colors
+tqdm==4.66.0 # progress bar
+python-dotenv==1.0.0 # .env file support
+
+# api
+fastapi==0.101.1 # API framework
+requests==2.31.0 # HTTP requests
+uvicorn==0.23.2 # ASGI server
+gunicorn==21.2.0 # WSGI server
+passlib==1.7.4 # password hashing
+python-jose==3.3.0 # JWT encoding/decoding
+pydantic==2.2.0 # data validation
+fastapi-limiter==0.1.5 # rate limiting
+fastapi-users[beanie]==12.1.1 # user management
+
+# database
+redis==4.6.0 # Redis client
+
+# image processing
+Pillow==10.0.0 # python image library

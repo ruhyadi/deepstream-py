@@ -1,0 +1,27 @@
+version: "3"
+
+services:
+  deepstream-py:
+    container_name: deepstream-py
+    image: ruhyadi/dspy:v0.0.1
+    restart: unless-stopped
+    env_file: .env
+    tty: true
+    volumes:
+      - ./:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - deepstream-py-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+networks:
+  deepstream-py-network:
+    driver: bridge
+    name: deepstream-py-network
