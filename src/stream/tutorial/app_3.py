@@ -32,7 +32,6 @@ class DeepstreamApp3:
         self,
         source_uris: List[str],
         pgie_config_path: str,
-        sgie_config_path: str,
         requested_pgie: str = "nvinfer",
         disable_probe: bool = False,
         osd_process_mode: int = 0,
@@ -46,7 +45,6 @@ class DeepstreamApp3:
         self.source_uris = source_uris
         self.num_sources = len(source_uris)
         self.pgie_config_path = pgie_config_path
-        self.sgie_config_path = sgie_config_path
         self.requested_pgie = requested_pgie
         self.disable_probe = disable_probe
         self.osd_process_mode = osd_process_mode
@@ -77,7 +75,7 @@ class DeepstreamApp3:
         else:
             if not self.disable_probe:
                 pgie_src_pad.add_probe(
-                    pyds.Gst.PadProbeType.BUFFER, self.pgie_src_pad_buffer_probe, 0
+                    Gst.PadProbeType.BUFFER, self.pgie_src_pad_buffer_probe, 0
                 )
                 # performance measurement every 5 seconds
                 GLib.timeout_add(5000, self.perf_data.perf_print_callback)
@@ -134,7 +132,7 @@ class DeepstreamApp3:
                 log.error("Unable to create source bin")
                 RuntimeError("Unable to create source bin")
             self.pipeline.add(source_bin)
-            padname = f"sink_{i}"
+            padname = "sink_%u" % i
             sinkpad = self.streammux.get_request_pad(padname)
             if not sinkpad:
                 log.error("Unable to create sink pad bin")
@@ -224,8 +222,9 @@ class DeepstreamApp3:
 
         # set properties of streammux
         # TODO: set width and height
-        self.streammux.set_property("width", 1920)
-        self.streammux.set_property("height", 1080)
+        width, height, fps = self.get_source_properties()
+        self.streammux.set_property("width", width)
+        self.streammux.set_property("height", height)
         self.streammux.set_property("batch-size", self.num_sources)
         self.streammux.set_property("batched-push-timeout", 4000000)  # 4 seconds
 
@@ -239,8 +238,8 @@ class DeepstreamApp3:
             self.pgie.set_property("batch-size", self.num_sources)
 
         # set properties of tiler
-        tiler_rows = int(math.sqrt(self.number_sources))
-        tiler_columns = int(math.ceil((1.0 * self.number_sources) / tiler_rows))
+        tiler_rows = int(math.sqrt(self.num_sources))
+        tiler_columns = int(math.ceil((1.0 * self.num_sources) / tiler_rows))
         self.tiler.set_property("rows", tiler_rows)
         self.tiler.set_property("columns", tiler_columns)
         self.tiler.set_property("width", self.tiler_output_width)
@@ -261,6 +260,7 @@ class DeepstreamApp3:
         log.info(f"Linking elements in the Pipeline...")
         self.streammux.link(self.queue1)
         self.queue1.link(self.pgie)
+        self.pgie.link(self.queue2)
         if self.nvdslogger:
             self.queue2.link(self.nvdslogger)
             self.nvdslogger.link(self.tiler)
@@ -272,6 +272,18 @@ class DeepstreamApp3:
         self.queue4.link(self.nvosd)
         self.nvosd.link(self.queue5)
         self.queue5.link(self.sink)
+
+    def get_source_properties(self) -> tuple:
+        """
+        Get source property. Like width, height, fps, etc.
+        """
+        cap = cv2.VideoCapture(self.source_uris[0])
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        cap.release()
+
+        return width, height, fps
 
     def create_source_bin(self, index: int, uri: str):
         """Create source bin."""
@@ -352,7 +364,7 @@ class DeepstreamApp3:
 
     def decodebin_child_added_handler(self, child_proxy, Object, name, user_data):
         """Decodebin child added handler."""
-        log.info("Decodebin child added:", name, "\n")
+        log.info(f"Dynamically created element {name}")
         if name.find("decodebin") != -1:
             Object.connect("child-added", self.decodebin_child_added_handler, user_data)
 
@@ -413,8 +425,8 @@ class DeepstreamApp3:
 
             # Update frame rate through this probe
             stream_index = "stream{0}".format(frame_meta.pad_index)
-            global perf_data
-            perf_data.update_fps(stream_index)
+            # global perf_data
+            self.perf_data.update_fps(stream_index)
 
             try:
                 l_frame = l_frame.next
@@ -422,3 +434,82 @@ class DeepstreamApp3:
                 break
 
         return Gst.PadProbeReturn.OK
+
+
+if __name__ == "__main__":
+    """Main function."""
+    parser = argparse.ArgumentParser(description="Deepstream app 3")
+    parser.add_argument(
+        "--source_uris",
+        nargs="+",
+        default=[
+            "rtsp://admin:widya123@192.168.0.64:554/Streaming/channels/101",
+            "rtsp://admin:widya123@192.168.0.64:554/Streaming/channels/101",
+        ],
+        help="List of sources, separated by space",
+    )
+    parser.add_argument(
+        "--pgie_config_path",
+        type=str,
+        default="configs/pgies/app3_pgie_config.txt",
+        help="Path to pgie config file",
+    )
+    parser.add_argument(
+        "--requested_pgie",
+        type=str,
+        default="nvinfer",
+        choices=["nvinfer", "nvinferserver", "nvinferserver-grpc"],
+        help="Requested pgie",
+    )
+    parser.add_argument(
+        "--disable_probe",
+        action="store_true",
+        default=False,
+        help="Disable probe",
+    )
+    parser.add_argument(
+        "--osd_process_mode",
+        type=int,
+        default=0,
+        help="OSD process mode",
+    )
+    parser.add_argument(
+        "--osd_display_text",
+        type=int,
+        default=1,
+        help="OSD display text",
+    )
+    parser.add_argument(
+        "--no_display",
+        action="store_true",
+        default=False,
+        help="No display",
+    )
+    parser.add_argument(
+        "--tiler_shape",
+        nargs="+",
+        type=int,
+        default=(1280, 720),
+        help="Tiler shape",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Verbose",
+    )
+    args = parser.parse_args()
+
+    app = DeepstreamApp3(
+        args.source_uris,
+        args.pgie_config_path,
+        args.requested_pgie,
+        args.disable_probe,
+        args.osd_process_mode,
+        args.osd_display_text,
+        args.no_display,
+        args.tiler_shape,
+        args.verbose,
+    )
+    app.setup()
+    app.run()
