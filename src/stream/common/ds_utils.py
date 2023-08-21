@@ -6,6 +6,7 @@ ROOT = rootutils.autosetup()
 
 import sys
 import time
+from threading import Lock
 
 import gi
 
@@ -15,6 +16,9 @@ from gi.repository import Gst
 from src.utils.logger import get_logger
 
 log = get_logger()
+
+start_time = time.time()
+fps_mutex = Lock()
 
 
 def bus_call(bus, message, loop) -> bool:
