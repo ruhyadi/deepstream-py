@@ -2,6 +2,7 @@
 # Usage: bash scripts/exec_docker.sh <image_tag>
 
 echo "Executing docker container"
+docker compose down -t 0
 docker compose up -d\
     && docker exec -it deepstream-py bash\
     &&

@@ -223,7 +223,7 @@ class DeepstreamApp2:
             RuntimeError("Unable to get source pad of decoder")
         srcpad.link(sinkpad)
         self.streammux.link(self.pgie)
-        self.pgie.link(self.nvvidconv)
+        self.pgie.link(self.tracker)
         self.tracker.link(self.sgie1)
         self.sgie1.link(self.sgie2)
         self.sgie2.link(self.sgie3)
@@ -280,7 +280,7 @@ class DeepstreamApp2:
         num_rects = 0
         gst_buffer = info.get_buffer()
         if not gst_buffer:
-            print("Unable to get GstBuffer ")
+            log.info("Unable to get GstBuffer ")
             return
 
         # Retrieve batch metadata from the gst_buffer
@@ -347,12 +347,13 @@ class DeepstreamApp2:
             # set(red, green, blue, alpha); set to Black
             py_nvosd_text_params.text_bg_clr.set(0.0, 0.0, 0.0, 1.0)
             # Using pyds.get_string() to get display_text as string
-            print(pyds.get_string(py_nvosd_text_params.display_text))
+            log.info(pyds.get_string(py_nvosd_text_params.display_text))
             pyds.nvds_add_display_meta_to_frame(frame_meta, display_meta)
             try:
                 l_frame = l_frame.next
             except StopIteration:
                 break
+        
         # past tracking meta data
         l_user = batch_meta.batch_user_meta_list
         while l_user is not None:
@@ -381,22 +382,22 @@ class DeepstreamApp2:
                     )
                 except StopIteration:
                     break
-                for trackobj in pyds.NvDsPastFrameObjBatch.list(pPastFrameObjBatch):
-                    print("streamId=", trackobj.streamID)
-                    print("surfaceStreamID=", trackobj.surfaceStreamID)
-                    for pastframeobj in pyds.NvDsPastFrameObjStream.list(trackobj):
-                        print("numobj=", pastframeobj.numObj)
-                        print("uniqueId=", pastframeobj.uniqueId)
-                        print("classId=", pastframeobj.classId)
-                        print("objLabel=", pastframeobj.objLabel)
-                        for objlist in pyds.NvDsPastFrameObjList.list(pastframeobj):
-                            print("frameNum:", objlist.frameNum)
-                            print("tBbox.left:", objlist.tBbox.left)
-                            print("tBbox.width:", objlist.tBbox.width)
-                            print("tBbox.top:", objlist.tBbox.top)
-                            print("tBbox.right:", objlist.tBbox.height)
-                            print("confidence:", objlist.confidence)
-                            print("age:", objlist.age)
+                # for trackobj in pyds.NvDsPastFrameObjBatch.list(pPastFrameObjBatch):
+                #     print("streamId=", trackobj.streamID)
+                #     print("surfaceStreamID=", trackobj.surfaceStreamID)
+                #     for pastframeobj in pyds.NvDsPastFrameObjStream.list(trackobj):
+                #         print("numobj=", pastframeobj.numObj)
+                #         print("uniqueId=", pastframeobj.uniqueId)
+                #         print("classId=", pastframeobj.classId)
+                #         print("objLabel=", pastframeobj.objLabel)
+                #         for objlist in pyds.NvDsPastFrameObjList.list(pastframeobj):
+                #             print("frameNum:", objlist.frameNum)
+                #             print("tBbox.left:", objlist.tBbox.left)
+                #             print("tBbox.width:", objlist.tBbox.width)
+                #             print("tBbox.top:", objlist.tBbox.top)
+                #             print("tBbox.right:", objlist.tBbox.height)
+                #             print("confidence:", objlist.confidence)
+                #             print("age:", objlist.age)
             try:
                 l_user = l_user.next
             except StopIteration:
